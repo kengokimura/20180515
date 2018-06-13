@@ -1,0 +1,31 @@
+using Microsoft.Office.Interop.Outlook; 
+
+//省略//
+
+var outlookApp = new Microsoft.Office.Interop.Outlook.Application(); 
+var rObject = outlookApp.Session.CreateRecipient("MailAddress or PersonName"); 
+MAPIFolder mapiFolder = outlookApp.Session.GetSharedDefaultFolder(rObject, OlDefaultFolders.olFolderCalendar); 
+
+DateTime dt = DateTime.Today; 
+//In Japan 
+string startDate = dt.ToString("yy/MM/dd"); 
+string endDate = dt.AddDays(10).ToString("yy/MM/dd"); 
+
+//開始日、終了日の間の予定で絞り込むとき
+string filter = "[Start] >= '" + startDate + "' AND [Start] <= '" + endDate + "'";
+//予定の題名を「元旦」で絞り込む場合
+//string filter = "[Subject] = '元日'"; 
+//終日の予定で絞り込む場合
+//string filter = "[AllDayEvent] = True";
+
+//指定した条件で絞り込み
+var list = mapiFolder.Items.Restrict(filter); 
+
+//結果のソート
+list.Sort("[Start]"); 
+
+//取得数
+int i = list.Count; 
+
+foreach (AppointmentItem n in list) 
+  Console.WriteLine(" Subject:" + n.Subject + "Start:" + n.Start + " End:" + n.End); 
