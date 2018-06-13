@@ -1,0 +1,90 @@
+' ここをトリプルクリックでマクロ全体を選択できます。
+Public Sub ShowGroupScheduleToday()
+    On Error Resume Next
+    Const HTMLFILE = "c:\temp\gs.htm" ' 作成する HTML ファイルのフルパスを指定します。
+    Const STARTTIME = 8 ' 業務の開始時間を指定します。この例では 8 時としています。
+    Dim aMailboxes
+    aMailboxes = Array("user1", "user2", "user3", "user4") ' 表示したいユーザーのエイリアス、またはメールアドレスを指定します。
+    Dim objRec As Recipient
+    Dim calOthers 'As Folder
+    Dim colApptBase As Items
+    Dim colAppt As Items
+    Dim objAppt 'As AppointmentItem
+    Dim strToday As String
+    Dim dtStart As Date
+    Dim dtEnd As Date
+    Dim strHtml As String
+    Dim i, t As Integer
+    Dim iStart As Integer
+    Dim iEnd As Integer
+    Dim iRange As Integer
+    Dim objWsh As Object
+'
+    Open HTMLFILE For Output As #1
+    strToday = FormatDateTime(Now, vbShortDate)
+    dtStart = CDate(strToday & " " & STARTTIME & ":00")
+    dtEnd = DateAdd("d", 1, strToday)
+    iRange = (24 - STARTTIME) * 60
+'
+    Print #1, "<html><head><META HTTP-EQUIV=""Content-Type"" CONTENT=""text/html; charset=shift-jis"">"
+    Print #1, "<title>" & strToday & "の予定</title><style>"
+    Print #1, "a {color:black;text-decoration:none;}"
+    Print #1, ".b1 {position:absolute;width:100px;font-size:10px;border:1px solid black;}"
+    Print #1, ".nm {position:relative;width:98px;height:14px;overflow:hidden;border-bottom: 1px dotted silver;}"
+    Print #1, ".b2 {position:absolute;width:600px;left:110px;font-size:10px;overflow:scroll;border:1px solid black;}"
+    Print #1, ".tf {position:relative;width:" & iRange & "px;height:14px;border-bottom: 1px dotted silver;}"
+    Print #1, ".tb {position:absolute;width:60px;height:14px;border-right: 1px solid black;}"
+    Print #1, ".bs1 {position:absolute;height:12px;overflow:hidden;border: 1px solid silver;background-color:silver;}"
+    Print #1, ".bs2 {position:absolute;height:12px;overflow:hidden;border: 1px solid #5f5fe8;background-color:#f8eeff;}"
+    Print #1, ".bs3 {position:absolute;height:12px;overflow:hidden;border: 1px solid #700070;background-color:#ffeeff;}"
+    Print #1, "</style></head>"
+    Print #1, "<body><h1>" & strToday & "の予定</h1>"
+    Print #1, "<div style='position:relative;font-size:10px;height:14px;'>"
+    Print #1, "<div class='bs2' style='left:500px;width:50px;'>予定あり</div>"
+    Print #1, "<div class='bs1' style='left:560px;width:50px;'>仮の予定</div>"
+    Print #1, "<div class='bs3' style='left:620px;width:50px;'>外出中</div>"
+    Print #1, "</div>"
+    Print #1, "<div class='b1'>"
+    Print #1, "<div class='nm'>グループ　メンバ</div>"
+    strHtml = ""
+    For i = 0 To UBound(aMailboxes)
+        Set objRec = Session.CreateRecipient(aMailboxes(i))
+        objRec.Resolve
+        Print #1, "<div class='nm'>"
+        Print #1, "<a href=""mailto:" & objRec.Address & """>" & objRec.Name & "</a></div>"
+        strHtml = strHtml & "<div class='tf'>"
+        For t = STARTTIME To 23
+            strHtml = strHtml & "<div class='tb' style='left:" & ((t - STARTTIME) * 60) & "px;'></div>"
+        Next
+        Set calOthers = Application.Session.GetSharedDefaultFolder(objRec, olFolderCalendar)
+        Set colApptBase = calOthers.Items
+        colApptBase.IncludeRecurrences = True
+        colApptBase.Sort "[開始日]"
+        Set colAppt = colApptBase.Restrict("[開始日]< """ & dtEnd & """ AND [終了日] >=""" & strToday & """")
+        Debug.Print dtStart, dtEnd
+        For Each objAppt In colAppt
+            Debug.Print objAppt.Subject
+            If objAppt.BusyStatus <> olFree Then
+                iStart = DateDiff("n", dtStart, objAppt.Start)
+                If iStart < 0 Then iStart = 0
+                iEnd = DateDiff("n", dtStart, objAppt.End)
+                If iEnd > 1440 Then iEnd = 1440
+                strHtml = strHtml & "<div class='bs" & objAppt.BusyStatus & _
+                    "' style='left:" & iStart & "px;width:" & (iEnd - iStart) & "px;'>" & _
+                    "<a href=""#"" title=""" & FormatDateTime(objAppt.Start, vbShortTime) & _
+                    " - " & FormatDateTime(objAppt.End, vbShortTime) & _
+                    " " & objAppt.Subject & """>" & objAppt.Subject & "</a></div>"
+            End If
+        Next
+        strHtml = strHtml & "</div>"
+    Next
+    Print #1, "</div>"
+    Print #1, "<div class='b2'><div class='tf'>"
+    For t = STARTTIME To 23
+        Print #1, "<div style='position:absolute;left:" & ((t - STARTTIME) * 60) & "px;'>" & t & ":00</div>"
+    Next
+    Print #1, "</div>" & strHtml & "</div>"
+    Close #1
+    Set objWsh = CreateObject("Wscript.Shell")
+    objWsh.Run HTMLFILE
+End Sub
